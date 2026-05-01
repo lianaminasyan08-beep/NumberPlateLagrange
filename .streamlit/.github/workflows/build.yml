@@ -1,0 +1,22 @@
+name: Build C++ Shared Library
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Build shared library
+      run: |
+        g++ -shared -fPIC cpp_module/lagrange_core.cpp -o cpp_module/liblagrange.so
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: liblagrange
+        path: cpp_module/liblagrange.so
