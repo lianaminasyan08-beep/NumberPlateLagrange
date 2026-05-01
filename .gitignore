@@ -1,0 +1,59 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# =========================
+# Streamlit
+# =========================
+.streamlit/
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDEs / Editors
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# Build / C++ artifacts
+# =========================
+cpp_module/*.obj
+cpp_module/*.exp
+cpp_module/*.lib
+cpp_module/*.dll
+cpp_module/*.exe
+cpp_module/*.so
+
+# =========================
+# Outputs & temp files
+# =========================
+output/
+temp/
+*.jpg
+*.png
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# Misc
+# =========================
+*.npy
