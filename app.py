@@ -280,7 +280,8 @@ with tab1:
         st.download_button(
             "Download Image",
             data=cv2.imencode(".jpg", img)[1].tobytes(),
-            file_name="plate.jpg"
+            file_name="plate.jpg",
+            mime="image/jpeg"  
         )
 
 # =========================
