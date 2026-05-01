@@ -19,7 +19,7 @@ st.caption("Lagrange-based watermark encoding and verification")
 st.divider()
 
 # =========================
-# LOAD C++ LIB
+# LOAD C++ LIB (SAFE WINDOWS + LINUX)
 # =========================
 BASE_DIR = os.path.dirname(__file__)
 
@@ -70,7 +70,7 @@ def encode_plate(text):
     return [char_to_num(c) for c in text]
 
 # =========================
-# PYTHON LAGRANGE
+# PYTHON FALLBACK LAGRANGE
 # =========================
 def build_signature_python(nums):
     x = np.arange(len(nums))
@@ -96,13 +96,14 @@ def build_signature_python(nums):
     return ys
 
 # =========================
-# C++ SIGNATURE
+# C++ SIGNATURE WRAPPER
 # =========================
 def build_signature(nums):
     if not use_cpp:
         return build_signature_python(nums)
 
     n = len(nums)
+
     arr = (ctypes.c_double * n)(*nums)
     out = (ctypes.c_double * 60)()
 
@@ -152,6 +153,7 @@ def blur_plate(image, bbox):
         return image
 
     blurred = cv2.GaussianBlur(roi, (101, 101), 0)
+
     small = cv2.resize(blurred, (20, 20))
     pixelated = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
 
@@ -160,25 +162,16 @@ def blur_plate(image, bbox):
     return image
 
 # =========================
-# SAFE SIGNATURE EXTRACTION
+# SIGNATURE EXTRACTION
 # =========================
 def extract_signature(img):
     h, w = img.shape[:2]
 
     wm_w, wm_h = 220, 120
-
-    # ✅ prevent crash if image too small
-    if w < wm_w or h < wm_h:
-        return None
-
     x0 = w - wm_w - 10
     y0 = h - wm_h - 10
 
     roi = img[y0:y0+wm_h, x0:x0+wm_w]
-
-    # ✅ prevent crash
-    if roi.size == 0:
-        return None
 
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
 
@@ -210,12 +203,40 @@ def compare(a, b):
     return abs(np.dot(a, b))
 
 # =========================
+# SAVE IMAGE
+# =========================
+def save_image(img):
+    os.makedirs("output", exist_ok=True)
+    path = "output/result.jpg"
+    cv2.imwrite(path, img)
+    return path
+
+# =========================
+# SIDEBAR
+# =========================
+with st.sidebar:
+    st.header("Workflow")
+
+    st.markdown("""
+### Encoding
+1. Upload image   
+2. Detect plate  
+3. Generate watermark  
+4. Download image  
+
+### Decoding
+1. Upload image  
+2. Enter key  
+3. Verify watermark  
+""")
+
+# =========================
 # TABS
 # =========================
 tab1, tab2 = st.tabs(["Encoding", "Decoding"])
 
 # =========================
-# ENCODING (UNCHANGED)
+# ENCODING
 # =========================
 with tab1:
     file = st.file_uploader("Upload Car Image")
@@ -223,7 +244,10 @@ with tab1:
     if file:
         img = cv2.imdecode(np.frombuffer(file.read(), np.uint8), 1)
 
-        st.image(img, caption="Input Image", use_container_width=True)
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.image(img, caption="Input Image", use_container_width=True)
 
         path = "temp.jpg"
         cv2.imwrite(path, img)
@@ -232,7 +256,8 @@ with tab1:
         text_list, boxes = result if isinstance(result, tuple) else (result, [])
 
         if not text_list or text_list[0] == "":
-            st.error("No plate detected")
+            st.error("No plate detected or OCR failed")
+            st.write("Debug boxes:", boxes)
             st.stop()
 
         text = clean_plate(text_list[0])
@@ -243,50 +268,37 @@ with tab1:
         img = embed_watermark(img, sig)
         img = blur_plate(img, boxes[0] if boxes else (0,0,img.shape[1],img.shape[0]))
 
-        st.image(img, caption="Processed Image", use_container_width=True)
+        with col2:
+            st.image(img, caption="Processed Image", use_container_width=True)
+
+        st.success("Detected Plate")
+        st.code(text)
+
+        st.markdown("Encoded Key")
+        st.code(",".join(map(str, nums)))
 
         st.download_button(
             "Download Image",
             data=cv2.imencode(".jpg", img)[1].tobytes(),
-            file_name="plate.jpg",
-            mime="image/jpeg"
+            file_name="plate.jpg"
         )
 
 # =========================
-# DECODING (FIXED)
+# DECODING
 # =========================
 with tab2:
     file = st.file_uploader("Upload Watermarked Image")
     key = st.text_input("Enter Key")
 
     if file and key:
-        file_bytes = np.frombuffer(file.read(), np.uint8)
-        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        img = cv2.imdecode(np.frombuffer(file.read(), np.uint8), 1)
 
-        # ✅ FIX 1: check image
-        if img is None:
-            st.error("Invalid image file")
-            st.stop()
-
-        st.image(img, caption="Uploaded Image", use_container_width=True)
-
-        try:
-            nums = list(map(int, key.split(",")))
-        except:
-            st.error("Invalid key format")
-            st.stop()
+        nums = list(map(int, key.split(",")))
 
         sig1 = build_signature(nums)
         sig2 = extract_signature(img)
 
-        # ✅ FIX 2: safe extraction
-        if sig2 is None:
-            st.error("Watermark not found or image too small")
-            st.stop()
-
         score = compare(sig1, sig2)
-
-        st.write("Similarity score:", round(score, 4))
 
         if score > 0.85:
             plate = "".join(num_to_char(n) for n in nums)
