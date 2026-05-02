@@ -25,3 +25,7 @@ Decoding: Upload image + enter key → system verifies plate
 Note
 
 Works best with clear images. Heavy compression may affect accuracy.
+
+paste this in terminal to run code: 
+py -m streamlit run app.py 
+
